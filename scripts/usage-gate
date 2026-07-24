@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+set -eu
+
+exec /Users/nicolas/work/usage-pulse/.venv/bin/usage-pulse gate "$@"
+

@@ -85,7 +85,20 @@ usage-pulse setup
 # ローカル診断（依存 CLI / provider / state / cache）
 usage-pulse doctor
 usage-pulse doctor --json
+
+# agent-dispatch 向け使用量 gate（0=OK, 10=WARN, 20=HOLD）
+usage-pulse gate codex
+usage-pulse gate claude
+usage-pulse gate opencode-go
 ```
+
+`doctor` は CodexBar 経由で `claude,codex,cursor,opencodego,gemini,antigravity,copilot`
+の live 取得も確認します。未ログイン・cookie 未検出・未対応 API は失敗扱いではなく
+`warn` として表示し、取得できた provider だけを `summary` / `rates` に反映します。
+
+`gate` のしきい値は `USAGE_PULSE_GATE_WARN_PCT`（既定 80）、
+`USAGE_PULSE_GATE_HOLD_PCT`（既定 95）、`USAGE_PULSE_GATE_CREDIT_WARN_PCT`
+（既定 10）、`USAGE_PULSE_GATE_CREDIT_HOLD_PCT`（既定 2）で調整できます。
 
 ---
 
@@ -126,9 +139,12 @@ usage-pulse
 - tmux ステータスラインはキャッシュを即時返し、更新処理をバックグラウンド化
 - ccusage は実スキーマ (`period` / `totalCost` / `totalTokens`) を検証して今日または最新日の行を選択
 - CodexBar rate window は provider 別に並列取得し、遅い provider は短い timeout で切り離し
+- CodexBar provider は既定で `claude,codex,cursor,opencodego,gemini,antigravity,copilot` を確認し、Codex は複数アカウントを `--all-accounts` で集約
 - 共有状態ファイルと tmux キャッシュは原子的に置換し、読者側に部分書き込みを見せない
 
-CodexBar の timeout は `USAGE_PULSE_CODEXBAR_TIMEOUT` で調整できます（既定: 4 秒）。
+CodexBar の timeout は `USAGE_PULSE_CODEXBAR_TIMEOUT` で調整できます（既定: 8 秒）。
+対象 provider は `USAGE_PULSE_CODEXBAR_PROVIDERS=claude,codex` のようにカンマ区切りで絞れます。
+Codex 複数アカウント取得を止める場合は `USAGE_PULSE_CODEXBAR_ALL_ACCOUNTS=0` を指定します。
 
 ---
 

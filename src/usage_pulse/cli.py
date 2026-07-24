@@ -61,6 +61,13 @@ def _echo_json(payload: dict) -> None:
     click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
 
 
+def _gate_threshold(name: str, default: float) -> float:
+    try:
+        return float(os.environ.get(name, str(default)))
+    except ValueError:
+        return default
+
+
 def _cache_paths() -> tuple[Path, Path]:
     cache_dir = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "usage-pulse"
     return cache_dir / "statusline", cache_dir / "statusline.time"
@@ -266,6 +273,15 @@ def doctor(json_output, skip_live):
                 f"{data.date} ${data.cost_usd:.2f} / {data.total_tokens:,} tokens",
                 elapsed_ms=elapsed_ms,
             )
+        if codexbar.available:
+            for provider_status in codexbar.fetch_provider_statuses():
+                add(
+                    f"codexbar_{provider_status['provider']}",
+                    provider_status["status"],
+                    provider_status["detail"],
+                    label=provider_status["label"],
+                    item_count=provider_status["item_count"],
+                )
 
     status = "fail" if any(c["status"] == "fail" for c in checks) else "ok"
     payload = {
@@ -288,6 +304,89 @@ def doctor(json_output, skip_live):
 
     if status == "fail":
         sys.exit(1)
+
+
+@main.command()
+@click.argument("engine")
+def gate(engine):
+    """Return subscription usage gate status for agent-dispatch."""
+    normalized = engine.strip().lower()
+    provider_by_engine = {
+        "claude": "claude",
+        "codex": "codex",
+        "gpt": "codex",
+        "opencode-go": "opencodego",
+        "opencodego": "opencodego",
+    }
+    if normalized in {"free", "local", "ollama"}:
+        click.echo(f"OK|{normalized}|free/local engine")
+        return
+
+    provider_name = provider_by_engine.get(normalized)
+    if not provider_name:
+        click.echo(f"WARN|{normalized}|no gate mapping")
+        sys.exit(10)
+
+    cb = CodexbarProvider()
+    if not cb.available:
+        click.echo(f"WARN|{normalized}|codexbar not available")
+        sys.exit(10)
+
+    previous_providers = os.environ.get("USAGE_PULSE_CODEXBAR_PROVIDERS")
+    os.environ["USAGE_PULSE_CODEXBAR_PROVIDERS"] = provider_name
+    try:
+        statuses = cb.fetch_provider_statuses()
+        windows = cb.fetch_rate_windows()
+    finally:
+        if previous_providers is None:
+            os.environ.pop("USAGE_PULSE_CODEXBAR_PROVIDERS", None)
+        else:
+            os.environ["USAGE_PULSE_CODEXBAR_PROVIDERS"] = previous_providers
+
+    ok_statuses = [status for status in statuses if status["status"] == "ok"]
+    if not ok_statuses:
+        detail = statuses[0]["detail"] if statuses else "no provider status"
+        click.echo(f"WARN|{normalized}|{detail}")
+        sys.exit(10)
+
+    relevant = [info for info in windows.values() if info.get("provider") == provider_name]
+    if not relevant:
+        click.echo(f"WARN|{normalized}|no rate window returned")
+        sys.exit(10)
+
+    warn_pct = _gate_threshold("USAGE_PULSE_GATE_WARN_PCT", 80.0)
+    hold_pct = _gate_threshold("USAGE_PULSE_GATE_HOLD_PCT", 95.0)
+    credit_warn_pct = _gate_threshold("USAGE_PULSE_GATE_CREDIT_WARN_PCT", 10.0)
+    credit_hold_pct = _gate_threshold("USAGE_PULSE_GATE_CREDIT_HOLD_PCT", 2.0)
+    include_credits = os.environ.get("USAGE_PULSE_GATE_INCLUDE_CREDITS", "1") == "1"
+
+    max_primary = max(float(info.get("primary_pct", 0.0)) for info in relevant)
+    max_secondary = max(float(info.get("secondary_pct", 0.0)) for info in relevant)
+    credit_remaining_values = [
+        float(info["credit_remaining_pct"])
+        for info in relevant
+        if include_credits and info.get("credit_remaining_pct") is not None
+    ]
+    min_credit_remaining = min(credit_remaining_values) if credit_remaining_values else None
+
+    detail = f"primary={max_primary:.1f}% secondary={max_secondary:.1f}%"
+    if min_credit_remaining is not None:
+        detail += f" credit_remaining={min_credit_remaining:.1f}%"
+
+    if max_primary >= hold_pct or max_secondary >= hold_pct:
+        click.echo(f"HOLD|{normalized}|{detail}")
+        sys.exit(20)
+    if min_credit_remaining is not None and min_credit_remaining <= credit_hold_pct:
+        click.echo(f"HOLD|{normalized}|{detail}")
+        sys.exit(20)
+    if max_primary >= warn_pct or max_secondary >= warn_pct:
+        click.echo(f"WARN|{normalized}|{detail}")
+        sys.exit(10)
+    if min_credit_remaining is not None and min_credit_remaining <= credit_warn_pct:
+        click.echo(f"WARN|{normalized}|{detail}")
+        sys.exit(10)
+
+    click.echo(f"OK|{normalized}|{detail}")
 
 
 @main.command()

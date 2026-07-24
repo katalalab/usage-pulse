@@ -153,6 +153,84 @@ def test_doctor_fails_when_ccusage_missing(monkeypatch):
     assert next(c for c in payload["checks"] if c["name"] == "ccusage_command")["status"] == "fail"
 
 
+def test_gate_ok(monkeypatch):
+    class FakeCodexbarProvider:
+        available = True
+
+        def fetch_provider_statuses(self):
+            return [
+                {
+                    "provider": "codex",
+                    "label": "CX",
+                    "status": "ok",
+                    "detail": "1 account(s)",
+                    "item_count": 1,
+                }
+            ]
+
+        def fetch_rate_windows(self):
+            return {"codex": {"provider": "codex", "primary_pct": 12.0, "secondary_pct": 42.0}}
+
+    monkeypatch.setattr("usage_pulse.cli.CodexbarProvider", FakeCodexbarProvider)
+
+    result = CliRunner().invoke(main, ["gate", "codex"])
+
+    assert result.exit_code == 0
+    assert result.output.startswith("OK|codex|primary=12.0% secondary=42.0%")
+
+
+def test_gate_warns_on_provider_unavailable(monkeypatch):
+    class FakeCodexbarProvider:
+        available = True
+
+        def fetch_provider_statuses(self):
+            return [
+                {
+                    "provider": "opencodego",
+                    "label": "OC",
+                    "status": "warn",
+                    "detail": "No OpenCode session cookies found in browsers.",
+                    "item_count": 0,
+                }
+            ]
+
+        def fetch_rate_windows(self):
+            return {}
+
+    monkeypatch.setattr("usage_pulse.cli.CodexbarProvider", FakeCodexbarProvider)
+
+    result = CliRunner().invoke(main, ["gate", "opencode-go"])
+
+    assert result.exit_code == 10
+    assert "WARN|opencode-go|No OpenCode session cookies found" in result.output
+
+
+def test_gate_holds_on_rate_limit(monkeypatch):
+    class FakeCodexbarProvider:
+        available = True
+
+        def fetch_provider_statuses(self):
+            return [
+                {
+                    "provider": "claude",
+                    "label": "CC",
+                    "status": "ok",
+                    "detail": "1 account(s)",
+                    "item_count": 1,
+                }
+            ]
+
+        def fetch_rate_windows(self):
+            return {"claude": {"provider": "claude", "primary_pct": 96.0, "secondary_pct": 35.0}}
+
+    monkeypatch.setattr("usage_pulse.cli.CodexbarProvider", FakeCodexbarProvider)
+
+    result = CliRunner().invoke(main, ["gate", "claude"])
+
+    assert result.exit_code == 20
+    assert result.output.startswith("HOLD|claude|primary=96.0% secondary=35.0%")
+
+
 def test_summary_exits_nonzero_when_usage_missing(monkeypatch):
     class FakeCcusageProvider:
         def fetch_today(self):
