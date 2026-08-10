@@ -155,6 +155,8 @@ def test_doctor_fails_when_ccusage_missing(monkeypatch):
 
 def test_summary_exits_nonzero_when_usage_missing(monkeypatch):
     class FakeCcusageProvider:
+        last_error = "timeout after 30s"
+
         def fetch_today(self):
             return None
 
@@ -164,3 +166,4 @@ def test_summary_exits_nonzero_when_usage_missing(monkeypatch):
 
     assert result.exit_code == 1
     assert "could not fetch usage data" in result.output
+    assert "timeout after 30s" in result.output

@@ -55,6 +55,10 @@ class CcusageProvider:
         else:
             self.command = [shutil.which("bunx") or "bunx", "ccusage"]
         self.timeout = timeout
+        # fetch_today() has five distinct failure modes that all return None. The launchd
+        # sync job's only signal is one constant stderr line, so without this the reason
+        # for a failed run is unrecoverable after the fact.
+        self.last_error: str | None = None
 
     @staticmethod
     def _as_float(value: Any) -> float:
@@ -117,6 +121,7 @@ class CcusageProvider:
         )
 
     def fetch_today(self) -> UsageData | None:
+        self.last_error = None
         try:
             result = subprocess.run(
                 [*self.command, "daily", "--json"],
@@ -125,20 +130,33 @@ class CcusageProvider:
                 timeout=self.timeout,
             )
             if result.returncode != 0:
+                self.last_error = f"exit {result.returncode}: {result.stderr.strip()[:200]}"
                 return None
             raw = result.stdout.strip()
             if not raw:
+                self.last_error = "empty stdout"
                 return None
             data = json.loads(raw)
-        except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError):
+        except subprocess.TimeoutExpired:
+            self.last_error = f"timeout after {self.timeout}s"
+            return None
+        except json.JSONDecodeError as exc:
+            self.last_error = f"invalid JSON: {exc}"
+            return None
+        except FileNotFoundError:
+            self.last_error = f"command not found: {self.command[0]}"
             return None
 
         daily = data.get("daily", [])
         if not daily:
+            self.last_error = "no daily entries"
             return None
 
         today = self._select_day([entry for entry in daily if isinstance(entry, dict)])
-        return self._parse_day(today) if today is not None else None
+        if today is None:
+            self.last_error = "no usable daily entry"
+            return None
+        return self._parse_day(today)
 
     def format_tmux(self, data: UsageData, cost_threshold: float = 50.0) -> str:
         """Return tmux-colored status string."""

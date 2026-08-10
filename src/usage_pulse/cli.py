@@ -133,7 +133,7 @@ def sync(threshold, json_output, quiet):
     provider = CcusageProvider()
     data = provider.fetch_today()
     if data is None:
-        click.echo("Error: could not fetch usage data", err=True)
+        click.echo(f"Error: could not fetch usage data ({provider.last_error})", err=True)
         sys.exit(1)
 
     advisor = ModelAdvisor()
@@ -169,7 +169,7 @@ def summary(threshold, json_output):
     ccusage = CcusageProvider()
     data = ccusage.fetch_today()
     if data is None:
-        click.echo("Error: could not fetch usage data", err=True)
+        click.echo(f"Error: could not fetch usage data ({ccusage.last_error})", err=True)
         sys.exit(1)
 
     # Enrich with real-time rate windows from CodexBar (TTY-free per-provider calls)
@@ -394,7 +394,7 @@ def roi():
     provider = CcusageProvider()
     data = provider.fetch_today()
     if data is None:
-        click.echo("Error: could not fetch usage data", err=True)
+        click.echo(f"Error: could not fetch usage data ({provider.last_error})", err=True)
         sys.exit(1)
 
     rois = compute_roi(data.model_breakdowns)
