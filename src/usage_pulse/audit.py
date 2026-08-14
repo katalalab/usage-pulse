@@ -363,7 +363,7 @@ def collect_usage(skip_live: bool = False) -> dict[str, Any]:
 
 def _load_average() -> dict[str, Any]:
     try:
-        one, five, fifteen = os.getloadavg()
+        one, five, fifteen = os.getloadavg()  # type: ignore[attr-defined]  # Unix-only
         return {"available": True, "one": one, "five": five, "fifteen": fifteen}
     except (AttributeError, OSError):
         return {"available": False}

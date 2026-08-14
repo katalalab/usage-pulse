@@ -56,6 +56,25 @@ def test_summary_json(monkeypatch):
     assert payload["recommendation"]["model"]
 
 
+def test_summary_text_renders_unicode(monkeypatch):
+    """Human-readable summary prints the em-dash/emoji path that crashed on cp932."""
+
+    class FakeCcusageProvider:
+        def fetch_today(self):
+            return _usage_data()
+
+    class FakeCodexbarProvider:
+        available = False
+
+    monkeypatch.setattr("usage_pulse.cli.CcusageProvider", FakeCcusageProvider)
+    monkeypatch.setattr("usage_pulse.cli.CodexbarProvider", FakeCodexbarProvider)
+
+    result = CliRunner().invoke(main, ["summary"])
+
+    assert result.exit_code == 0
+    assert "—" in result.output
+
+
 def test_sync_quiet_writes_state_without_output(monkeypatch, tmp_path):
     class FakeCcusageProvider:
         def fetch_today(self):

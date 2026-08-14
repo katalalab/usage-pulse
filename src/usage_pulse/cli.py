@@ -71,7 +71,13 @@ def _cache_paths() -> tuple[Path, Path]:
 @click.version_option()
 def main():
     """usage-pulse — AI tool usage monitor (Mac/Win/Linux)."""
-    pass
+    # Windows consoles default to a legacy codepage (e.g. cp932) that cannot
+    # encode the em-dash and emoji this CLI prints; force UTF-8 so output does
+    # not crash regardless of the active codepage.
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8")
 
 
 @main.command()
