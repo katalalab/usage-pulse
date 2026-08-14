@@ -17,6 +17,7 @@ state.
 ## Operational Notes
 
 - [current-state.md](current-state.md): current reproducibility, CI, and adoption status.
+- [cleanup-roadmap.md](cleanup-roadmap.md): README/docs/verifier cleanup plan and verification boundaries.
 - [official-docs/ai-audit-sources-2026-06-21.md](official-docs/ai-audit-sources-2026-06-21.md): prior official/source evidence for the AI audit surface.
 
 ## Local Verification
@@ -31,4 +32,11 @@ For a dependency-free smoke check of provider pin metadata:
 
 ```bash
 bash scripts/verify.sh providers-static
+```
+
+For docs-only cleanup slices, also run:
+
+```bash
+bash -n scripts/verify.sh
+git diff --check
 ```

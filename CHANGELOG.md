@@ -5,6 +5,7 @@
 ### Added
 - Repo-local `scripts/verify.sh` for reproducible uv-backed lint, typecheck, security, test, and provider-pin checks.
 - `.python-version` to align local and CI Python selection.
+- `docs/cleanup-roadmap.md` plus README/docs index links for ongoing README/docs/verifier cleanup tracking.
 
 ## [0.1.0] - 2026-06-19
 

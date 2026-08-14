@@ -56,3 +56,5 @@ and the pinned provider metadata in `providers/VERSION_PINS.json`.
   `.python-version`, `pyproject.toml`, and `uv.lock`.
 - Deferred checks: full `bash scripts/verify.sh ci` because it performs dependency
   sync and security tooling; run it when dependency installation is acceptable.
+- Cleanup roadmap: `docs/cleanup-roadmap.md` tracks README/docs/verifier upkeep,
+  provider-pin boundaries, and the dependency-sync split for future cleanup passes.

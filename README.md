@@ -48,6 +48,12 @@ CI と同じ検証はリポジトリルートで実行します。
 bash scripts/verify.sh ci
 ```
 
+依存同期なしでプロバイダー pin メタデータだけを確認する場合:
+
+```bash
+bash scripts/verify.sh providers-static
+```
+
 ### tmux ステータスライン
 
 ```bash
@@ -185,6 +191,8 @@ AI エージェントはこのファイルを読んで現在の使用量状況�
 - `providers/VERSION_PINS.json`: 各ツールの対応バージョンを記録
 - `scripts/check-provider-updates.sh`: ccusage/codexbar の最新版とスキーマ変更を確認
 - GitHub Actions: 週次で各プロバイダーの CHANGELOG を確認し差分を Issue 登録
+
+README/docs/verifier の継続整備方針は [`docs/cleanup-roadmap.md`](./docs/cleanup-roadmap.md)、現在の再現性・CI 境界は [`docs/current-state.md`](./docs/current-state.md) に記録します。
 
 ---
 
