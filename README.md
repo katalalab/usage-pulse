@@ -18,6 +18,7 @@ tmux ステータスライン・OS ネイティブシステムトレイ・通知
 | codexbar 連携 | ✅ (TTY あり) | ❌ | ❌ |
 | Claude Code フック | ✅ | ✅ | ✅ |
 | モデル選択 Skill | ✅ | ✅ | ✅ |
+| AI runtime/config 監査 | ✅ | ✅ | ✅ |
 
 ---
 
@@ -36,7 +37,21 @@ tmux ステータスライン・OS ネイティブシステムトレイ・通知
 ```bash
 git clone https://github.com/<your-org>/usage-pulse ~/work/usage-pulse
 cd ~/work/usage-pulse
-uv sync
+uv sync --dev --frozen
+```
+
+### 検証
+
+CI と同じ検証はリポジトリルートで実行します。
+
+```bash
+bash scripts/verify.sh ci
+```
+
+依存同期なしでプロバイダー pin メタデータだけを確認する場合:
+
+```bash
+bash scripts/verify.sh providers-static
 ```
 
 ### tmux ステータスライン
@@ -90,6 +105,13 @@ usage-pulse doctor --json
 usage-pulse gate codex
 usage-pulse gate claude
 usage-pulse gate opencode-go
+# AI CLI の実行プロセス・安全な設定要約・トークン効率を監査
+usage-pulse audit
+usage-pulse audit --json
+usage-pulse audit --json --skip-live
+
+# SSH 接続先で audit JSON を集約
+usage-pulse fleet-audit --host home-mac-main --host nicolas2025 --json
 ```
 
 `doctor` は CodexBar 経由で `claude,codex,cursor,opencodego,gemini,antigravity,copilot`
@@ -124,6 +146,7 @@ usage-pulse
 ├── providers/          データ取得層
 │   ├── ccusage.py      ccusage daily --json (全 OS 共通)
 │   └── codexbar.py     codexbar usage --json (Mac TTY あり時のみ)
+├── audit.py            AI CLI / 設定 / プロセス / tmux / 使用量監査
 ├── display/            表示層
 │   ├── tmux.py         tmux status-right 文字列
 │   ├── tray.py         pystray システムトレイ (Win/Linux)
@@ -141,6 +164,8 @@ usage-pulse
 - CodexBar rate window は provider 別に並列取得し、遅い provider は短い timeout で切り離し
 - CodexBar provider は既定で `claude,codex,cursor,opencodego,gemini,antigravity,copilot` を確認し、Codex は複数アカウントを `--all-accounts` で集約
 - 共有状態ファイルと tmux キャッシュは原子的に置換し、読者側に部分書き込みを見せない
+- `audit` は設定ファイルの秘密値を出さず、モデル名・sandbox/approval・hook有無など安全なホワイトリストだけを要約
+- `audit` は `ccusage` 由来のモデル別 cost/output/cache 効率、AI 関連プロセス、tmux ペイン数、load average からボトルネック候補を JSON 化
 
 CodexBar の timeout は `USAGE_PULSE_CODEXBAR_TIMEOUT` で調整できます（既定: 8 秒）。
 対象 provider は `USAGE_PULSE_CODEXBAR_PROVIDERS=claude,codex` のようにカンマ区切りで絞れます。
@@ -181,6 +206,8 @@ AI エージェントはこのファイルを読んで現在の使用量状況�
 - `providers/VERSION_PINS.json`: 各ツールの対応バージョンを記録
 - `scripts/check-provider-updates.sh`: ccusage/codexbar の最新版とスキーマ変更を確認
 - GitHub Actions: 週次で各プロバイダーの CHANGELOG を確認し差分を Issue 登録
+
+README/docs/verifier の継続整備方針は [`docs/cleanup-roadmap.md`](./docs/cleanup-roadmap.md)、現在の再現性・CI 境界は [`docs/current-state.md`](./docs/current-state.md) に記録します。
 
 ---
 

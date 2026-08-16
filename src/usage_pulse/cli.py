@@ -12,6 +12,7 @@ import click
 
 from .analysis.advisor import ModelAdvisor
 from .analysis.roi import compute_roi, format_roi_table
+from .audit import collect_audit, run_remote_audit
 from .display.notify import Notifier
 from .handshake import STATE_FILE, write_state
 from .providers.ccusage import CcusageProvider
@@ -77,7 +78,13 @@ def _cache_paths() -> tuple[Path, Path]:
 @click.version_option()
 def main():
     """usage-pulse — AI tool usage monitor (Mac/Win/Linux)."""
-    pass
+    # Windows consoles default to a legacy codepage (e.g. cp932) that cannot
+    # encode the em-dash and emoji this CLI prints; force UTF-8 so output does
+    # not crash regardless of the active codepage.
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8")
 
 
 @main.command()
@@ -139,7 +146,7 @@ def sync(threshold, json_output, quiet):
     provider = CcusageProvider()
     data = provider.fetch_today()
     if data is None:
-        click.echo("Error: could not fetch usage data", err=True)
+        click.echo(f"Error: could not fetch usage data ({provider.last_error})", err=True)
         sys.exit(1)
 
     advisor = ModelAdvisor()
@@ -175,7 +182,7 @@ def summary(threshold, json_output):
     ccusage = CcusageProvider()
     data = ccusage.fetch_today()
     if data is None:
-        click.echo("Error: could not fetch usage data", err=True)
+        click.echo(f"Error: could not fetch usage data ({ccusage.last_error})", err=True)
         sys.exit(1)
 
     # Enrich with real-time rate windows from CodexBar (TTY-free per-provider calls)
@@ -387,6 +394,68 @@ def gate(engine):
         sys.exit(10)
 
     click.echo(f"OK|{normalized}|{detail}")
+@click.option("--json", "json_output", is_flag=True, help="Print machine-readable JSON")
+@click.option("--skip-live", is_flag=True, help="Skip live usage provider fetches")
+@click.option("--no-processes", is_flag=True, help="Skip process table collection")
+def audit(json_output, skip_live, no_processes):
+    """Collect a read-only AI runtime/config/token-efficiency audit."""
+    payload = collect_audit(skip_live=skip_live, include_processes=not no_processes)
+    if json_output:
+        _echo_json(payload)
+        return
+
+    click.echo(f"usage-pulse audit — {payload['host']['hostname']}")
+    click.echo(f"  generated_at: {payload['generated_at']}")
+    click.echo(f"  usage: {payload['usage']['status']}")
+    if payload["usage"]["status"] == "ok":
+        click.echo(
+            f"  tokens: {payload['usage']['tokens']:,} / "
+            f"${payload['usage']['cost_usd']:.4f} ({payload['usage']['date']})"
+        )
+    available = [tool["name"] for tool in payload["tools"] if tool["available"]]
+    click.echo(f"  tools: {', '.join(available) if available else 'none'}")
+    click.echo(
+        f"  tmux: {payload['tmux']['status']} ai_panes={payload['tmux'].get('ai_pane_count', 0)}"
+    )
+    if payload["bottlenecks"]:
+        click.echo("  bottlenecks:")
+        for finding in payload["bottlenecks"]:
+            click.echo(f"    {finding['severity']} {finding['code']}: {finding['detail']}")
+    else:
+        click.echo("  bottlenecks: none")
+
+
+@main.command("fleet-audit")
+@click.option("--host", "hosts", multiple=True, required=True, help="SSH host to audit")
+@click.option(
+    "--remote-command",
+    default="usage-pulse audit --json --skip-live",
+    show_default=True,
+    help="Remote command that prints usage-pulse audit JSON",
+)
+@click.option("--timeout", default=30, show_default=True, help="Per-host timeout seconds")
+@click.option("--json", "json_output", is_flag=True, help="Print machine-readable JSON")
+def fleet_audit(hosts, remote_command, timeout, json_output):
+    """Run audit over SSH hosts and aggregate JSON results."""
+    results = [run_remote_audit(host, remote_command, timeout=timeout) for host in hosts]
+    status = "ok" if all(result["status"] == "ok" for result in results) else "partial"
+    payload = {
+        "status": status,
+        "generated_at": datetime.now(UTC).isoformat(),
+        "remote_command": remote_command,
+        "results": results,
+    }
+    if json_output:
+        _echo_json(payload)
+        return
+
+    click.echo(f"usage-pulse fleet-audit: {status}")
+    for result in results:
+        detail = result.get("audit", {}).get("host", {}).get("hostname", result["status"])
+        click.echo(f"  {result['host']}: {result['status']} {detail}")
+
+    if status != "ok":
+        sys.exit(1)
 
 
 @main.command()
@@ -427,7 +496,7 @@ def roi():
     provider = CcusageProvider()
     data = provider.fetch_today()
     if data is None:
-        click.echo("Error: could not fetch usage data", err=True)
+        click.echo(f"Error: could not fetch usage data ({provider.last_error})", err=True)
         sys.exit(1)
 
     rois = compute_roi(data.model_breakdowns)
