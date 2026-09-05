@@ -163,16 +163,16 @@ class CodexbarProvider:
                 }
             successful = [item for item in items if isinstance(item, dict) and "error" not in item]
             if not successful:
-                detail = None
+                error_detail: str | None = None
                 for item in items:
                     if isinstance(item, dict):
-                        detail = _error_message(item.get("error"))
-                    if detail:
+                        error_detail = _error_message(item.get("error"))
+                    if error_detail:
                         break
                 return {
                     "provider": provider,
                     "status": "warn",
-                    "detail": detail or f"codexbar exited {result.returncode}",
+                    "detail": error_detail or f"codexbar exited {result.returncode}",
                     "item_count": 0,
                     "items": [],
                 }
