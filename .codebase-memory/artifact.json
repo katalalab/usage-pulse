@@ -1,11 +1,11 @@
 {
-    "schema_version": 1,
-    "commit": "24f97c7826a3f9a28d5d72ce5202e619c534e098",
-    "indexed_at": "2026-06-20T21:36:53Z",
+    "schema_version": 2,
+    "commit": "0b732dd7617347ef1a189bd2e6121a8472481f0b",
+    "indexed_at": "2026-09-04T15:37:16Z",
     "project": "Users-s30519-work-usage-pulse",
-    "nodes": 351,
-    "edges": 967,
-    "original_size": 2097152,
-    "compressed_size": 106416,
+    "nodes": 427,
+    "edges": 1380,
+    "original_size": 3473408,
+    "compressed_size": 433645,
     "compression_level": 3
 }
