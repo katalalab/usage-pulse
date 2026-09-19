@@ -163,16 +163,18 @@ class CodexbarProvider:
                 }
             successful = [item for item in items if isinstance(item, dict) and "error" not in item]
             if not successful:
-                detail = None
+                # detail は 147 行目で str として束縛済み。ここは None を取りうるので
+                # 別名にする（同じ名前へ str | None を入れると mypy が落ちる）。
+                error_detail: str | None = None
                 for item in items:
                     if isinstance(item, dict):
-                        detail = _error_message(item.get("error"))
-                    if detail:
+                        error_detail = _error_message(item.get("error"))
+                    if error_detail:
                         break
                 return {
                     "provider": provider,
                     "status": "warn",
-                    "detail": detail or f"codexbar exited {result.returncode}",
+                    "detail": error_detail or f"codexbar exited {result.returncode}",
                     "item_count": 0,
                     "items": [],
                 }
