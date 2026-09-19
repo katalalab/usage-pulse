@@ -394,6 +394,9 @@ def gate(engine):
         sys.exit(10)
 
     click.echo(f"OK|{normalized}|{detail}")
+
+
+@main.command()
 @click.option("--json", "json_output", is_flag=True, help="Print machine-readable JSON")
 @click.option("--skip-live", is_flag=True, help="Skip live usage provider fetches")
 @click.option("--no-processes", is_flag=True, help="Skip process table collection")
