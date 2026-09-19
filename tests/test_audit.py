@@ -118,13 +118,13 @@ def test_fleet_audit_json(monkeypatch):
 
     result = CliRunner().invoke(
         main,
-        ["fleet-audit", "--host", "home-mac-main", "--host", "nicolas2025", "--json"],
+        ["fleet-audit", "--host", "host-a", "--host", "host-b", "--json"],
     )
 
     assert result.exit_code == 0
     payload = json.loads(result.output)
     assert payload["status"] == "ok"
-    assert [item["host"] for item in payload["results"]] == ["home-mac-main", "nicolas2025"]
+    assert [item["host"] for item in payload["results"]] == ["host-a", "host-b"]
 
 
 def test_analyze_bottlenecks_detects_high_load_and_missing_usage():

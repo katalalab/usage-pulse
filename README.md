@@ -111,7 +111,7 @@ usage-pulse audit --json
 usage-pulse audit --json --skip-live
 
 # SSH 接続先で audit JSON を集約
-usage-pulse fleet-audit --host home-mac-main --host nicolas2025 --json
+usage-pulse fleet-audit --host host-a --host host-b --json
 ```
 
 `doctor` は CodexBar 経由で `claude,codex,cursor,opencodego,gemini,antigravity,copilot`
