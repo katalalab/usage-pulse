@@ -38,7 +38,8 @@ typecheck() {
 
 security() {
   run_repo uv run bandit -r src/ -ll -x src/usage_pulse/display/tray.py
-  run_repo uv run pip-audit
+  # Local source is checked by bandit; PyPI advisories cover installed dependencies.
+  run_repo uv run pip-audit --skip-editable
 }
 
 test_suite() {
